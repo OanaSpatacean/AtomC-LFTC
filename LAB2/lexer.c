@@ -15,18 +15,18 @@ int line=1;		// the current line in the input file
 Token *addTk(int code){
 	Token *tk=safeAlloc(sizeof(Token));
 	tk->code=code;
-	tk->line=line;
+	tk->line=line; //set the line in the input file where the token was found in cases for '\r' and '\n'
 	tk->next=NULL;
-	if(lastTk){
-		lastTk->next=tk;
+	if(lastTk){ //input characters are consumed until the end of that token
+		lastTk->next=tk; 
 		}else{
 		tokens=tk;
 		}
-	lastTk=tk;
-	return tk;
+	lastTk=tk; //add a new token with the given code to the list of tokens
+	return tk; //returns a pointer to the added token, allowing for the possibility of setting additional fields if needed
 	}
 
-char *extract(const char *begin,const char *end){
+char *extract(const char *begin,const char *end){ //the beginning of the substring to be extracted and the address of the first character after the substring
     int length = end - begin; //length of the substring that will be extracted
     char *extractedSubstring = safeAlloc(length + 1); // add 1 for NULL termination
     
@@ -36,11 +36,11 @@ char *extract(const char *begin,const char *end){
     return extractedSubstring;
 	}
 
-Token *tokenize(const char *pch){
+Token *tokenize(const char *pch){ //pch (pointer at current char) is used as an iterator in the input text
 	const char *start;
 	Token *tk;
-	for(;;){
-		switch(*pch){
+	for(;;){ // exits when the string terminator ('\0') is encountered
+		switch(*pch){ //a switch statement is used to categorize tokens based on their first character
 			case ' ':
 			case '\t':
 				pch++;
@@ -60,8 +60,8 @@ Token *tokenize(const char *pch){
 				addTk(COMMA);
 				pch++;
 				break;
-			case '=':
-				if(pch[1]=='=')
+			case '=': //If multiple tokens start with the same prefix (e.g., {ASSIGN, EQUAL} or {INT, DOUBLE}), the implementation needs to distinguish between these tokens
+				if(pch[1]=='=') //travers the common prefix and then test the subsequent characters
 				{
 					addTk(EQUAL);
 					pch+=2;
@@ -185,7 +185,7 @@ Token *tokenize(const char *pch){
 					pch++;
 				}
 				break;
-			default:
+			default: //If a token can begin with multiple characters (e.g., ID, INT)
 				if(isalpha(*pch)||*pch=='_')
 				{
 					for(start=pch++;isalnum(*pch)||*pch=='_';pch++) //check if the current character is an alphabetic character or an underscore
@@ -213,7 +213,7 @@ Token *tokenize(const char *pch){
 					else if(strcmp(text,"while")==0) 
 						addTk(WHILE);
 					else //already in the given code
-					{
+					{//after encountering an ID, it is first checked whether it is a keyword. If yes, the respective keyword is added. Otherwise, if it is not a keyword, it is added as an ID
 						tk=addTk(ID); //if no token matches, add an ID 
 						tk->text=text; //store the text in the token structure
 					}
@@ -246,7 +246,7 @@ Token *tokenize(const char *pch){
 						tk->text = text;
 					}
 				}
-				else if (isdigit(*pch)) //check if the current character is a digit
+				else if (isdigit(*pch)) //check if the current character is the start of an INT or DOUBLE
 				{
 					int DotFlag = 0; //process digits
 					int ENotationFlag = 0;
@@ -270,7 +270,7 @@ Token *tokenize(const char *pch){
 					{
 						tk = addTk(DOUBLE); 
 						tk->d = strtod(text, &EndPointer); //convert the extracted numeric text into a double using strtod
-					}
+					}//the numeric value for DOUBLE constants will be stored in the d field
 					else
 					{
 						tk = addTk(INT);
@@ -278,7 +278,7 @@ Token *tokenize(const char *pch){
 					}
 				}
 			else //already in the given code
-				err("invalid char: %c (%d)",*pch,*pch);
+				err("invalid char: %c (%d)",*pch,*pch); //there is no token starting with the current character
 		}
 	}
 }

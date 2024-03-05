@@ -53,7 +53,7 @@ typedef struct Token{
 		double d;		// the value for DOUBLE
 		};
 	struct Token *next;		// next token in a simple linked list
-	}Token;
+	}Token; //an atom
 
 Token *tokenize(const char *pch);
 void showTokens(const Token *tokens);
