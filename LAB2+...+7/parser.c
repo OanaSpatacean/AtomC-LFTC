@@ -3,17 +3,20 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include "parser.h"
+#include "utils.h"
+#include "ad.h"
+#include <string.h>
 
 bool unit();
 bool structDef();
 bool varDef();
-bool typeBase();
-bool arrayDecl();
+bool typeBase(Type *t);
+bool arrayDecl(Type *t);
 bool typeName();
 bool fnDef();
 bool fnParam();
 bool stm();
-bool stmCompound();
+bool stmCompound(bool newDomain);
 bool expr();
 bool exprAssign();
 bool exprOr();
@@ -29,6 +32,7 @@ bool exprPrimary();
 
 Token *iTk;		// the iterator in the tokens list
 Token *consumedTk;		// the last consumed token
+Symbol *owner;
 
 void tkerr(const char *fmt,...){
 	fprintf(stderr,"error in line %d: ",iTk->line);
@@ -77,8 +81,18 @@ bool structDef() { //definitia unei structuri
 	{
 		if(consume(ID))
 		{
+			Token *tkName = consumedTk;
 			if(consume(LACC))
 			{
+				Symbol *s=findSymbolInDomain(symTable,tkName->text);
+				if(s)tkerr("symbol redefinition: %s",tkName->text);
+				s=addSymbolToDomain(symTable,newSymbol(tkName->text,SK_STRUCT));
+				s->type.tb=TB_STRUCT;
+				s->type.s=s;
+				s->type.n=-1;
+				pushDomain();
+				owner=s;
+
 				while(1)
 				{
 					if(varDef())
@@ -94,6 +108,9 @@ bool structDef() { //definitia unei structuri
 				{
 					if(consume(SEMICOLON))
 					{
+						owner=NULL;
+						dropDomain();
+
 						return true;
 					}
 					else 
@@ -120,14 +137,19 @@ bool structDef() { //definitia unei structuri
 // varDef: typeBase ID arrayDecl? SEMICOLON
 bool varDef() { //definitia unei variabile
 	Token *start=iTk;
+	Type t;
 
-	if(typeBase())
+	if(typeBase(&t))
 	{
 		if(consume(ID))
 		{
-			if(arrayDecl())
-			{
+			Token *tkName = consumedTk;
 
+			if(arrayDecl(&t))
+			{
+				if (t.n == 0) {
+                    tkerr("A vector variable must have a specified dimension");
+                }
 			}
 			while(1)
 			{
@@ -135,7 +157,7 @@ bool varDef() { //definitia unei variabile
 				{
 					if(consume(ID))
 					{
-						if(arrayDecl())
+						if(arrayDecl(&t))
 						{
 
 						}
@@ -152,6 +174,35 @@ bool varDef() { //definitia unei variabile
 			}
 			if(consume(SEMICOLON))
 			{
+				Symbol *var=findSymbolInDomain(symTable,tkName->text);
+
+				if(var)
+					tkerr("symbol redefinition: %s",tkName->text);
+
+				var=newSymbol(tkName->text,SK_VAR);
+				var->type=t;
+				var->owner=owner;
+				addSymbolToDomain(symTable,var);
+
+				if(owner)
+				{
+					switch(owner->kind)
+					{
+						case SK_FN:
+							var->varIdx=symbolsLen(owner->fn.locals);
+							addSymbolToList(&owner->fn.locals,dupSymbol(var));
+							break;
+						case SK_STRUCT:
+							var->varIdx=typeSize(&owner->type);
+							addSymbolToList(&owner->structMembers,dupSymbol(var));
+							break;
+					}
+				}
+				else
+				{
+					var->varMem=safeAlloc(typeSize(&t));
+				}
+
 				return true;
 			}
 			else 
@@ -170,20 +221,32 @@ bool varDef() { //definitia unei variabile
 
 // typeBase: TYPE_INT | TYPE_DOUBLE | TYPE_CHAR | STRUCT ID
 //totul sau nimic!!
-bool typeBase(){ //recunoastere type-urilor folosite, inclusiv cel de struct
+bool typeBase(Type *t){ //recunoastere type-urilor folosite, inclusiv cel de struct
 	Token *start=iTk;
+	t->n=-1;
 	if(consume(TYPE_INT)){
+		t->tb=TB_INT;
 		return true;
 		}
 	if(consume(TYPE_DOUBLE)){
+		t->tb = TB_DOUBLE;
 		return true;
 		}
 	if(consume(TYPE_CHAR)){
+		t->tb = TB_CHAR;
 		return true;
 		}
 	if(consume(STRUCT)){
 		if(consume(ID)){
-			return true;
+				Token *tkName = consumedTk;
+
+				t->tb = TB_STRUCT;
+				t->s = findSymbol(tkName->text);
+				if (!t->s) {
+					tkerr("Structure is not defined: %s", tkName->text);
+				}
+				
+				return true;
 			}
 		else
 		{
@@ -195,15 +258,21 @@ bool typeBase(){ //recunoastere type-urilor folosite, inclusiv cel de struct
 }
 
 // arrayDecl: LBRACKET INT? RBRACKET
-bool arrayDecl() { //declararea unui array
+bool arrayDecl(Type *t) { //declararea unui array
 	Token *start=iTk;
 
 	if(consume(LBRACKET))
 	{
-		if(expr())
+		if (consume(INT)) 
 		{
+            Token *tkSize = consumedTk;
+            t->n = tkSize->i;
+        } 
+		else 
+		{
+            t->n = 0;
+        }
 
-		}
 		if(consume(RBRACKET))
 		{
 			return true;
@@ -218,9 +287,10 @@ bool arrayDecl() { //declararea unui array
 }
 
 bool typeName(){
-	if(typeBase())
+	Type t;
+	if(typeBase(&t))
 	{
-		if(arrayDecl())
+		if(arrayDecl(&t))
 		{
 		
 		}
@@ -234,8 +304,9 @@ bool typeName(){
 //        stmCompound
 bool fnDef() { //definirea unei functii (...)
 	Token* start=iTk;
+	Type t;
 
-	if(typeBase())
+	if(typeBase(&t))
 	{
 		if(consume(MUL))
 		{
@@ -243,8 +314,18 @@ bool fnDef() { //definirea unei functii (...)
 		}
 		if(consume(ID))
 		{
+			Token *tkName = consumedTk;
+
 			if(consume(LPAR))
 			{
+				Symbol *fn=findSymbolInDomain(symTable,tkName->text);
+				if(fn)tkerr("symbol redefinition: %s",tkName->text);
+				fn=newSymbol(tkName->text,SK_FN);
+				fn->type=t;
+				addSymbolToDomain(symTable,fn);
+				owner=fn;
+				pushDomain();
+
 				if(fnParam())
 				{
 					while(1)
@@ -268,9 +349,14 @@ bool fnDef() { //definirea unei functii (...)
 				}
 				if(consume(RPAR))
 				{
-					if(stmCompound())
+					addInstr(&fn->fn.instr, OP_ENTER);
+
+					if (stmCompound(false)) 
 					{
-						return true;
+                        dropDomain();
+                        owner = NULL;
+
+                        return true;
 					}
 					else 
 					{
@@ -292,10 +378,27 @@ bool fnDef() { //definirea unei functii (...)
 	}
 	else if(consume(VOID))
 	{
+		t.tb = TB_VOID;
+
 		if(consume(ID))
 		{
+			Token *tkName = consumedTk;
+
 			if(consume(LPAR))
 			{
+				Symbol *fn = findSymbolInDomain(symTable, tkName->text);
+
+                if (fn) 
+				{
+                    tkerr("Symbol is already defined: %s", tkName->text);
+                }
+
+                fn = newSymbol(tkName->text, SK_FN);
+                fn->type = t;
+                addSymbolToDomain(symTable, fn);
+                owner = fn;
+                pushDomain();
+
 				if(fnParam())
 				{
 					while(1)
@@ -319,8 +422,10 @@ bool fnDef() { //definirea unei functii (...)
 				}
 				if(consume(RPAR))
 				{
-					if(stmCompound())
+					if(stmCompound(false))
 					{
+						dropDomain();
+                        owner = NULL;
 						return true;
 					}
 					else 
@@ -349,14 +454,32 @@ bool fnDef() { //definirea unei functii (...)
 
 // fnParam: typeBase ID arrayDecl?
 bool fnParam() { //parametrii unei functii, intre ()
-	if(typeBase())
+	Type t;
+	if(typeBase(&t))
 	{
 		if(consume(ID))
 		{
-			if(arrayDecl())
-			{
+			Token *tkName = consumedTk;
 
+			if(arrayDecl(&t))
+			{
+				t.n = 0;
 			}
+
+			Symbol *param = findSymbolInDomain(symTable, tkName->text);
+
+            if (param) 
+			{
+                tkerr("Symbol is already defined: %s", tkName->text);
+            }
+
+            param = newSymbol(tkName->text, SK_PARAM);
+            param->type = t;
+            param->owner = owner;
+            param->paramIdx = symbolsLen(owner->fn.params);
+            addSymbolToDomain(symTable, param);
+            addSymbolToList(&owner->fn.params, dupSymbol(param));
+
 			return true;
 		}
 		else 
@@ -373,7 +496,7 @@ bool fnParam() { //parametrii unei functii, intre ()
 //      | RETURN expr? SEMICOLON
 //      | expr? SEMICOLON
 bool stm() { //definirea conditiilor if, else, while, return
-	if(stmCompound())
+	if(stmCompound(true))
 	{
 		return true;
 	}
@@ -479,9 +602,12 @@ bool stm() { //definirea conditiilor if, else, while, return
 }
 
 // stmCompound: LACC ( varDef | stm )* RACC
-bool stmCompound() { //interiorul unei functii intre {} unde se pot declara variabile si utiliza instructiuni precum if, else, while, return
+bool stmCompound(bool newDomain) { //interiorul unei functii intre {} unde se pot declara variabile si utiliza instructiuni precum if, else, while, return
 	if(consume(LACC))
 	{
+		if(newDomain)
+			pushDomain();
+
 		while(1)
 		{
 			if(varDef())
@@ -497,6 +623,10 @@ bool stmCompound() { //interiorul unei functii intre {} unde se pot declara vari
 		}
 		if(consume(RACC))
 		{
+			if (newDomain) 
+			{
+                dropDomain();
+            }
 			return true;
 		}
 		else 
