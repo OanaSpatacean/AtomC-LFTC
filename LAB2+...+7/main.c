@@ -14,12 +14,12 @@ int main(void)
     Token *tokens = tokenize(inbuf);
     //showTokens(tokens);
 
-    pushDomain();
+    pushDomain(); //creaza domeniul global in tabela de simboluri
 
-    parse(tokens);
+    parse(tokens); //analiza sintactica
 
-    showDomain(symTable, "global");
-    dropDomain(); 
+    showDomain(symTable, "global"); //afisare domeniu global
+    dropDomain(); //sterge domeniul global
 
     free(inbuf);
     return 0;

@@ -81,16 +81,21 @@ bool structDef() { //definitia unei structuri
 	{
 		if(consume(ID))
 		{
-			Token *tkName = consumedTk;
+			Token *tkName = consumedTk; //dacă atomul ID a fost consumat, name va conține tot acel atom
+
 			if(consume(LACC))
 			{
 				Symbol *s=findSymbolInDomain(symTable,tkName->text);
-				if(s)tkerr("symbol redefinition: %s",tkName->text);
+
+				if(s)
+					tkerr("symbol redefinition: %s",tkName->text); //numele structurii trebuie sa fie unic in domeniu
+
 				s=addSymbolToDomain(symTable,newSymbol(tkName->text,SK_STRUCT));
 				s->type.tb=TB_STRUCT;
 				s->type.s=s;
-				s->type.n=-1;
-				pushDomain();
+				s->type.n=-1; //in interiorul structurii nu pot exista doua variabile cu acelasi nume
+
+				pushDomain(); //crează și adaugă un domeniu în vârful stivei de domenii
 				owner=s;
 
 				while(1)
@@ -109,7 +114,7 @@ bool structDef() { //definitia unei structuri
 					if(consume(SEMICOLON))
 					{
 						owner=NULL;
-						dropDomain();
+						dropDomain(); //șterge domeniul din vârful stivei de domenii
 
 						return true;
 					}
@@ -147,7 +152,8 @@ bool varDef() { //definitia unei variabile
 
 			if(arrayDecl(&t))
 			{
-				if (t.n == 0) {
+				if (t.n == 0) //dimension of array
+				{
                     tkerr("A vector variable must have a specified dimension");
                 }
 			}
@@ -174,22 +180,22 @@ bool varDef() { //definitia unei variabile
 			}
 			if(consume(SEMICOLON))
 			{
-				Symbol *var=findSymbolInDomain(symTable,tkName->text);
+				Symbol *var=findSymbolInDomain(symTable,tkName->text); //caută un simbol cu numele tkName->text în domeniul symTable
 
 				if(var)
-					tkerr("symbol redefinition: %s",tkName->text);
+					tkerr("symbol redefinition: %s",tkName->text); //numele variabilei trebuie sa fie unic in domeniu
 
 				var=newSymbol(tkName->text,SK_VAR);
 				var->type=t;
 				var->owner=owner;
-				addSymbolToDomain(symTable,var);
+				addSymbolToDomain(symTable,var); //adaugă simbolul var în domeniul symTable
 
 				if(owner)
 				{
 					switch(owner->kind)
 					{
 						case SK_FN:
-							var->varIdx=symbolsLen(owner->fn.locals);
+							var->varIdx=symbolsLen(owner->fn.locals); //variabilele de tip vector trebuie sa aiba dimensiunea data (nu se accepta: int v[])
 							addSymbolToList(&owner->fn.locals,dupSymbol(var));
 							break;
 						case SK_STRUCT:
@@ -241,7 +247,7 @@ bool typeBase(Type *t){ //recunoastere type-urilor folosite, inclusiv cel de str
 				Token *tkName = consumedTk;
 
 				t->tb = TB_STRUCT;
-				t->s = findSymbol(tkName->text);
+				t->s = findSymbol(tkName->text); //daca tipul de baza este o structura, ea trebuie sa fie deja definita anterior
 				if (!t->s) {
 					tkerr("Structure is not defined: %s", tkName->text);
 				}
@@ -319,12 +325,15 @@ bool fnDef() { //definirea unei functii (...)
 			if(consume(LPAR))
 			{
 				Symbol *fn=findSymbolInDomain(symTable,tkName->text);
-				if(fn)tkerr("symbol redefinition: %s",tkName->text);
+
+				if(fn)
+					tkerr("symbol redefinition: %s",tkName->text); //numele functiei trebuie sa fie unic in domeniu
+					
 				fn=newSymbol(tkName->text,SK_FN);
 				fn->type=t;
 				addSymbolToDomain(symTable,fn);
 				owner=fn;
-				pushDomain();
+				pushDomain(); //domeniul local functiei incepe imediat dupa LPAR
 
 				if(fnParam())
 				{
@@ -353,7 +362,7 @@ bool fnDef() { //definirea unei functii (...)
 
 					if (stmCompound(false)) 
 					{
-                        dropDomain();
+                        dropDomain(); // corpul functiei {...} nu defineste un nou subdomeniu in domeniul local functiei
                         owner = NULL;
 
                         return true;
@@ -424,7 +433,7 @@ bool fnDef() { //definirea unei functii (...)
 				{
 					if(stmCompound(false))
 					{
-						dropDomain();
+						dropDomain(); 
                         owner = NULL;
 						return true;
 					}
@@ -470,14 +479,14 @@ bool fnParam() { //parametrii unei functii, intre ()
 
             if (param) 
 			{
-                tkerr("Symbol is already defined: %s", tkName->text);
+                tkerr("Symbol is already defined: %s", tkName->text); //numele parametrului trebuie sa fie unic in domeniu
             }
 
             param = newSymbol(tkName->text, SK_PARAM);
             param->type = t;
             param->owner = owner;
-            param->paramIdx = symbolsLen(owner->fn.params);
-            addSymbolToDomain(symTable, param);
+            param->paramIdx = symbolsLen(owner->fn.params); //parametrii pot fi vectori cu dimensiune data, dar in acest caz li se sterge dimensiunea ( int v[10] -> int v[] )
+            addSymbolToDomain(symTable, param); //parametrul este adaugat atat la domeniul curent, cat si la parametrii fn
             addSymbolToList(&owner->fn.params, dupSymbol(param));
 
 			return true;
@@ -496,7 +505,7 @@ bool fnParam() { //parametrii unei functii, intre ()
 //      | RETURN expr? SEMICOLON
 //      | expr? SEMICOLON
 bool stm() { //definirea conditiilor if, else, while, return
-	if(stmCompound(true))
+	if(stmCompound(true)) // corpul compus {...} al instructiunilor defineste un nou domeniu
 	{
 		return true;
 	}
@@ -605,7 +614,7 @@ bool stm() { //definirea conditiilor if, else, while, return
 bool stmCompound(bool newDomain) { //interiorul unei functii intre {} unde se pot declara variabile si utiliza instructiuni precum if, else, while, return
 	if(consume(LACC))
 	{
-		if(newDomain)
+		if(newDomain) //se defineste un nou domeniu doar la cerere
 			pushDomain();
 
 		while(1)
