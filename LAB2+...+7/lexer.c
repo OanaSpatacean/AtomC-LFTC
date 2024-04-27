@@ -1,10 +1,9 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
-
+#include <stdlib.h>
 #include "lexer.h"
 #include "utils.h"
-#include <stdlib.h>
 
 Token *tokens;	// single linked list of tokens
 Token *lastTk;		// the last token in list
@@ -37,251 +36,286 @@ char *extract(const char *begin,const char *end){ //the beginning of the substri
     return extractedSubstring;
 	}
 
-Token *tokenize(const char *pch){ //pch (pointer at current char) is used as an iterator in the input text
-	const char *start;
-	Token *tk;
-	for(;;){ // exits when the string terminator ('\0') is encountered
-		switch(*pch){ //a switch statement is used to categorize tokens based on their first character
-			case ' ':
-			case '\t':
-				pch++;
-				break;
-			case '\r':		// handles different kinds of newlines (Windows: \r\n, Linux: \n, MacOS, OS X: \r or \n)
-				if(pch[1]=='\n')
-					pch++;
-				// fallthrough to \n
-			case '\n':
-				line++;
-				pch++;
-				break;
-			case '\0':
-				addTk(END);
-				return tokens;
-			case ',':
-				addTk(COMMA);
-				pch++;
-				break;
-			case '=': //If multiple tokens start with the same prefix (e.g., {ASSIGN, EQUAL} or {INT, DOUBLE}), the implementation needs to distinguish between these tokens
-				if(pch[1]=='=') //travers the common prefix and then test the subsequent characters
+Token *tokenize(const char *pch) 
+{
+    const char *start;
+    Token *tk;
+    for (;;) 
+	{
+        switch (*pch) 
+		{
+            case ' ':
+            case '\t':
+                pch++;
+                break;
+            case '\r': // handles different kinds of newlines (Windows: \r\n, Linux: \n,
+                // MacOS, OS X: \r or \n)
+                if (pch[1] == '\n') 
 				{
-					addTk(EQUAL);
-					pch+=2;
-				}
-				else
+                    pch++;
+                }
+                // fallthrough to \n
+            case '\n':
+                line++;
+                pch++;
+                break;
+            case '\0':
+                addTk(END);
+                return tokens;
+            case ',':
+                addTk(COMMA);
+                pch++;
+                break;
+            case ';':
+                addTk(SEMICOLON);
+                pch++;
+                break;
+            case '(':
+                addTk(LPAR);
+                pch++;
+                break;
+            case ')':
+                addTk(RPAR);
+                pch++;
+                break;
+            case '[':
+                addTk(LBRACKET);
+                pch++;
+                break;
+            case ']':
+                addTk(RBRACKET);
+                pch++;
+                break;
+            case '{':
+                addTk(LACC);
+                pch++;
+                break;
+            case '}':
+                addTk(RACC);
+                pch++;
+                break;
+            case '=':
+                if (pch[1] == '=') 
 				{
-					addTk(ASSIGN);
-					pch++;
-				}
-				break; //already in the given code
-			//here starts my code
-			case ';':
-				addTk(SEMICOLON);
-				pch++;
-				break;
-			case '(': 
-				addTk(LPAR);
-				pch++;
-				break;
-			case ')':
-				addTk(RPAR);
-				pch++;
-				break;
-			case '[':
-				addTk(LBRACKET);
-				pch++;
-				break;
-			case ']':
-				addTk(RBRACKET);
-				pch++;
-				break;
-			case '{':
-				addTk(LACC);
-				pch++;
-				break;
-			case '}':
-				addTk(RACC);
-				pch++;
-				break;
-			case '+':
-				addTk(ADD);
-				pch++;
-				break;
-			case '*':
-				addTk(MUL);
-				pch++;
-				break;
-			case '/':
-				if (pch[1] == '/')
+                    addTk(EQUAL);
+                    pch += 2;
+                } 
+				else 
 				{
-					while (*pch != '\0' && *pch != '\n')
+                    addTk(ASSIGN);
+                    pch++;
+                }
+                break;
+            case '+':
+                addTk(ADD);
+                pch++;
+                break;
+            case '-':
+                addTk(SUB);
+                pch++;
+                break;
+            case '*':
+                addTk(MUL);
+                pch++;
+                break;
+            case '/':
+                if (pch[1] == '/') 
+				{
+                    pch += 2;
+                    while (*pch != '\n' && *pch != '\0' && *pch != '\r') 
 					{
-						pch++;
-					}
-				}
-				else
+                        pch++;
+                    }
+                } 
+				else 
 				{
-					addTk(DIV);
-					pch++;
-				}
-				break;
-			case '.':
-				addTk(DOT); 
-				pch++; 
-				break;
-			case '&':
-				if(pch[1] == '&')
+                    addTk(DIV);
+                    pch++;
+                }
+                break;
+            case '.':
+                addTk(DOT);
+                pch++;
+                break;
+            case '&':
+                if (pch[1] == '&') 
 				{
-					addTk(AND);
-					pch += 2;
-				}
-				else
+                    addTk(AND);
+                    pch += 2;
+                } 
+				else 
 				{
-					err("invalid char: %c (%d)", *pch, *pch);
-				}
-				break;
-			case '|':
-				if(pch[1] == '|')
+                    err("invalid character");
+                }
+                break;
+            case '|':
+                if (pch[1] == '|') 
 				{
-					addTk(OR);
-					pch += 2;
-				}
-				else
+                    addTk(OR);
+                    pch += 2;
+                } 
+				else 
 				{
-					err("invalid char: %c (%d)", *pch, *pch);
-				}
-				break;
-			case '!':
-				if(pch[1]=='=')
+                    err("invalid character");
+                }
+                break;
+            case '!':
+                if (pch[1] == '=') 
 				{
-					addTk(NOTEQ);
-					pch+=2;
-				}
-				else
+                    addTk(NOTEQ);
+                    pch += 2;
+                } 
+				else 
 				{
-					addTk(NOT);
-					pch++;
-				}
-				break;
-			case '<':
-				if(pch[1] == '=')
+                    addTk(NOT);
+                    pch++;
+                }
+                break;
+            case '<':
+                if (pch[1] == '=') 
 				{
-					addTk(LESSEQ);
-					pch += 2;
-				}
-				else
+                    addTk(LESSEQ);
+                    pch += 2;
+                } 
+				else 
 				{
-					addTk(LESS);
-					pch++;
-				}
-				break;
-			case '>':
-				if(pch[1] == '=')
+                    addTk(LESS);
+                    pch++;
+                }
+                break;
+            case '>':
+                if (pch[1] == '=') 
 				{
-					addTk(GREATEREQ);
-					pch += 2;
-				}
-				else
+                    addTk(GREATEREQ);
+                    pch += 2;
+                } 
+				else 
 				{
-					addTk(GREATER);
-					pch++;
-				}
-				break;
-			default: //If a token can begin with multiple characters (e.g., ID, INT)
-				if(isalpha(*pch)||*pch=='_')
+                    addTk(GREATER);
+                    pch++;
+                }
+                break;
+            default:
+                if (isalpha(*pch) || *pch == '_') 
 				{
-					for(start=pch++;isalnum(*pch)||*pch=='_';pch++) //check if the current character is an alphabetic character or an underscore
-					{} //find the complete word
-
-					char *text=extract(start,pch); //extract the word resulted from the loop
-
-					if(strcmp(text,"char")==0) //add the corresponding tokens
-						addTk(TYPE_CHAR);//already in the given code
-					//here starts my code
-					else if(strcmp(text,"double")==0) 
-						addTk(TYPE_DOUBLE);
-					else if(strcmp(text,"else")==0) 
-						addTk(ELSE);
-					else if(strcmp(text,"if")==0) 
-						addTk(IF);
-					else if(strcmp(text,"int")==0) 
-						addTk(TYPE_INT);
-					else if(strcmp(text,"return")==0) 
-						addTk(RETURN);
-					else if(strcmp(text,"struct")==0) 
-						addTk(STRUCT);
-					else if(strcmp(text,"void")==0) 
-						addTk(VOID);
-					else if(strcmp(text,"while")==0) 
-						addTk(WHILE);
-					else //already in the given code
-					{//after encountering an ID, it is first checked whether it is a keyword. If yes, the respective keyword is added. Otherwise, if it is not a keyword, it is added as an ID
-						tk=addTk(ID); //if no token matches, add an ID 
-						tk->text=text; //store the text in the token structure
-					}
-				}
-				//here starts my code
-				else if (isalpha(*pch) || *pch == '"' || *pch == '\'') //check if the current character is an alphabetic character, double quote, or single quote
-				{
-					int SingleQuoteFlag = 0; //process characters or strings
-
-					pch++;
-
-					for (start = pch++; isalnum(*pch) || *pch == '"' || *pch == '\''; pch++)
+                    for (start = pch; isalnum(*pch) || *pch == '_'; pch++) 
 					{
-						if (*pch == '\'')
+                    }
+                    char *text = extract(start, pch);
+                    if (strcmp(text, "char") == 0) 
+					{
+                        addTk(TYPE_CHAR);
+                    } 
+					else if (strcmp(text, "int") == 0) 
+					{
+                        addTk(TYPE_INT);
+                    } 
+					else if (strcmp(text, "double") == 0) 
+					{
+                        addTk(TYPE_DOUBLE);
+                    } 
+					else if (strcmp(text, "if") == 0) 
+					{
+                        addTk(IF);
+                    } 
+					else if (strcmp(text, "else") == 0) 
+					{
+                        addTk(ELSE);
+                    } 
+					else if (strcmp(text, "return") == 0) 
+					{
+                        addTk(RETURN);
+                    } 
+					else if (strcmp(text, "struct") == 0) 
+					{
+                        addTk(STRUCT);
+                    } 
+					else if (strcmp(text, "void") == 0) 
+					{
+                        addTk(VOID);
+                    } 
+					else if (strcmp(text, "while") == 0) 
+					{
+                        addTk(WHILE);
+                    } 
+					else 
+					{
+                        tk = addTk(ID);
+                        tk->text = text;
+                    }
+                } else if (isdigit(*pch)) 
+				{
+                    // check for int and for double
+                    for (start = pch++; isdigit(*pch); pch++) 
+					{
+                    }
+                    if (*pch == '.' || *pch == 'e' || *pch == 'E') 
+					{
+                        if (*pch == '.') 
 						{
-							SingleQuoteFlag = 1;  //differentiate between character literals and string literals
-						}
-					}
+                            pch++;
+                            for (; isdigit(*pch); pch++) 
+							{
+                            }
+                        }
+                        if (*pch == 'e' || *pch == 'E') 
+						{
+                            pch++;
+                            if (*pch == '-' || *pch == '+') 
+							{
+                                pch++;
+                            }
+                            for (; isdigit(*pch); pch++) 
+							{
+                            }
+                        }
 
-					if (SingleQuoteFlag == 1)
+                        char *text = extract(start, pch);
+                        tk = addTk(DOUBLE);
+                        tk->d = atof(text);
+                    } 
+					else 
 					{
-						char *character = extract(start, pch - 1); //extract the content between the quotes or apostrophes 
-						tk = addTk(CHAR); //add a token accordingly CHAR/STRING
-						tk->c = *character;
-					}
-					else
-					{
-						char *text = extract(start, pch - 1);
-						tk = addTk(STRING);
-						tk->text = text;
-					}
-				}
-				else if (isdigit(*pch)) //check if the current character is the start of an INT or DOUBLE
+                        char *text = extract(start, pch);
+                        tk = addTk(INT);
+                        tk->i = atoi(text);
+                    }
+                } 
+				else if (*pch == '\'') 
 				{
-					int DotFlag = 0; //process digits
-					int ENotationFlag = 0;
-					char *EndPointer;
+                    int char_counter = 0;
 
-					for (start = pch++; isalnum(*pch) || *pch == '_' || *pch == '.' || *pch == 'e' || *pch == '-' || *pch == '+'; pch++)
-					{ //check for the presence of a dot or the letter 'e'/'E' to determine if it's a floating-point number
-						if (*pch == '.')
-						{
-							DotFlag = 1;
-						}
-						if (*pch == 'e' || *pch == 'E')
-						{
-							ENotationFlag = 1; //scientific notation
-						}
-					}
-
-					char *text = extract(start, pch); ////extract the number resulted from the loop
-
-					if (DotFlag == 1 || ENotationFlag == 1)
+                    for (start = ++pch; *pch != '\''; pch++) 
 					{
-						tk = addTk(DOUBLE); 
-						tk->d = strtod(text, &EndPointer); //convert the extracted numeric text into a double using strtod
-					}//the numeric value for DOUBLE constants will be stored in the d field
-					else
+                        char_counter++;
+                        if (char_counter > 1) 
+						{
+                            err("invalid sequence. expected char between ''");
+                        }
+                    }
+
+                    char text = extract(start, pch)[0];
+                    tk = addTk(CHAR);
+                    tk->c = text;
+                    pch++;
+                } 
+				else if (*pch == '\"') 
+				{
+                    for (start = pch++; *pch != '\"'; pch++) 
 					{
-						tk = addTk(INT);
-						tk->i = atoi(text); //convert the extracted numeric text into an integer using atoi
-					}
-				}
-			else //already in the given code
-				err("invalid char: %c (%d)",*pch,*pch); //there is no token starting with the current character
-		}
-	}
+                    }
+
+                    char *text = extract(start + 1, pch);
+                    tk = addTk(STRING);
+                    tk->text = text;
+                    pch++;
+                } 
+				else 
+				{
+                    err("invalid char: %c (%d)", *pch, *pch);
+                }
+        }
+    }
 }
 
 void showTokens(const Token *tokens){
