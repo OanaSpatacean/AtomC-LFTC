@@ -8,7 +8,7 @@
 
 int main(void)
 {
-    char *inbuf = loadFile("tests/testad.c"); 
+    char *inbuf = loadFile("tests/testat.c"); 
     //puts(inbuf);
 
     Token *tokens = tokenize(inbuf);
