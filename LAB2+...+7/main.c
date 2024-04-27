@@ -15,10 +15,14 @@ int main(void)
     //showTokens(tokens);
 
     pushDomain(); //creaza domeniul global in tabela de simboluri
+    vmInit(); // initializare masina virtuala
 
     parse(tokens); //analiza sintactica
 
-    showDomain(symTable, "global"); //afisare domeniu global
+    //showDomain(symTable, "global"); //afisare domeniu global
+    
+    Instr *testCode=genTestProgram(); // genereaza cod de test pentru masina virtuala
+    run(testCode); // executie cod masina virtuala
     dropDomain(); //sterge domeniul global
 
     free(inbuf);
