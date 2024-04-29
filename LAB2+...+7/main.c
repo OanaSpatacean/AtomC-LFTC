@@ -8,7 +8,7 @@
 
 int main(void)
 {
-    char *inbuf = loadFile("tests/testat.c"); 
+    char *inbuf = loadFile("tests/testgc.c"); 
     //puts(inbuf);
 
     Token *tokens = tokenize(inbuf);
@@ -20,10 +20,22 @@ int main(void)
     parse(tokens); //analiza sintactica
 
     //showDomain(symTable, "global"); //afisare domeniu global
-    
-    Instr *testCode=genTestProgram(); // genereaza cod de test pentru masina virtuala
-    run(testCode); // executie cod masina virtuala
-    dropDomain(); //sterge domeniul global
+
+    //Instr *testCode=genTestProgram(); // genereaza cod de test pentru masina virtuala
+    //run(testCode); // executie cod masina virtuala
+
+    Symbol *symMain = findSymbolInDomain(symTable, "main");
+
+    if (!symMain) {
+        err("missing main function");
+    }
+
+    Instr *entryCode = NULL;
+    addInstr(&entryCode, OP_CALL)->arg.instr = symMain->fn.instr;
+    addInstr(&entryCode, OP_HALT);
+    run(entryCode);
+
+    //dropDomain();
 
     free(inbuf);
     return 0;
